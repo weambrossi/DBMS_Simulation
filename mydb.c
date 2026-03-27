@@ -24,7 +24,7 @@ char bitmapblk[DISKSIZE];   /* Buffer for the bitmap block.
                             */
 
 typedef struct {
-	char relname[10];
+	char relname[9]; // max length of 8 chars + null terminator
 	int kind;
 	int attsize;
 	int keysize;
@@ -34,7 +34,7 @@ typedef struct {
 
 
 typedef struct {
-	char relname[10];
+	char relname[9];
 	char attname[20];
 	int attdomain;
 	int attposition;
@@ -47,8 +47,13 @@ typedef struct {
 
 int columnHeader[BLKMAX];
 int catalogHeader[BLKMAX];
+
 /* Depending on your implementation you might add or delete some of the arguments
    specified in the following functions */
+
+// Function: findFreeBlock()
+// Purpose: Look through bitmapblk (bitmap) to find a free block) 
+// Returns: The free index of bitmap
 int findFreeBlock() {
     for (int i = 0; i < 256; i++) {
         if (bitmapblk[i] == 0) {
@@ -59,22 +64,21 @@ int findFreeBlock() {
     return -1;  // disk full
 }
 
-int hash(char *tuple) {
-	char key[10];
-	sscanf(tuple, "%s", key);
+// Purpose: applies the hash function on a name of a relation
+// Parameter: char *name - the name of the relation
+// Returns: the bucket number
+int hash(char *relname) {
 	int sum = 0;
-	for (int i = 0; i < strlen(key); i++) {
-    	sum += key[i]; 
+	for (int i = 0; i < strlen(relname); i++) {
+    	sum += relname[i]; 
 	}
 	int	bucketnum = sum % 16;
-
 	return bucketnum;
-
-	
 }
 /* Disk IO operations */
 
-/* this operation initializes the specified header buffer and associates with the given header block. */
+// Purpose: initializes the specified header buffer and associates with the given header block.
+// Parameters: char *relname - name of the relation
 void dbcreate(char *relname, char *headerblk) {
 	int blocknum;
     
