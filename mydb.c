@@ -125,31 +125,44 @@ void diskwrite(int blocknum, char *buffer) {
 	fclose(stream);
 	}
 
+void do_create() {
+	char relname[9];
+	int n, k;
+	scanf("%s %d %d", relname, &n, &k);
+    // Read r n k from stdin
+	// Read n attribute specs (name + domain) from stdin
+	// Update the catalog (add a tuple for this new relation)
+	// Update the columns (add n tuples, one per attribute)
+	// Actually create the relation's storage structure via dbcreate()
+
+} 
+
+
 int main(void) {
 
-bitmapblk[0] = 1;  // bitmap block
-bitmapblk[1] = 1;  // catalog header
-bitmapblk[2] = 1;  // columns header
-// initialize headerblocks
-dbcreate("catalog", catalogHeader);
-dbcreate("columns", columnHeader);
-//write catalog into catalog
-dbput("catalog", "catalog 0 6 1 2 1");
-dbput("catalog", "columns 0 4 2 10 2");
+	bitmapblk[0] = 1;  // bitmap block
+	bitmapblk[1] = 1;  // catalog header
+	bitmapblk[2] = 1;  // columns header
+	// initialize headerblocks
+	dbcreate("catalog", catalogHeader);
+	dbcreate("columns", columnHeader);
+	//write catalog into catalog
+	dbput("catalog", "catalog 0 6 1 2 1");
+	dbput("catalog", "columns 0 4 2 10 2");
 
-//write initial columns for catalog
-dbput("columns", "catalog Relname 0 0");
-dbput("columns", "catalog Kind 1 1");
-dbput("columns", "catalog Attsize 1 2");
-dbput("columns", "catalog Keysize 1 3");
-dbput("columns", "catalog Relsize 1 4");
-dbput("columns", "catalog Relptr 1 5");
+	//write initial columns for catalog
+	dbput("columns", "catalog Relname 0 0");
+	dbput("columns", "catalog Kind 1 1");
+	dbput("columns", "catalog Attsize 1 2");
+	dbput("columns", "catalog Keysize 1 3");
+	dbput("columns", "catalog Relsize 1 4");
+	dbput("columns", "catalog Relptr 1 5");
 
-//write initial columns for columns
-dbput("columns", "columns Relname 0 0");
-dbput("columns", "columns Attname 0 1");
-dbput("columns", "columns Attdomain 1 2");
-dbput("columns", "columns Attposition 1 3");
+	//write initial columns for columns
+	dbput("columns", "columns Relname 0 0");
+	dbput("columns", "columns Attname 0 1");
+	dbput("columns", "columns Attdomain 1 2");
+	dbput("columns", "columns Attposition 1 3");
 
 
 
