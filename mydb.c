@@ -5,6 +5,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #define RECSIZE     63      /* Size of data record in bytes */
 #define BLKSIZE    256      /* Size of a disk block in bytes */
 #define BLKFAC       4      /* Blocking factor */
@@ -25,6 +26,22 @@ char bitmapblk[DISKSIZE];   /* Buffer for the bitmap block.
                             */
 
 typedef struct {
+	char relname[10];
+	int header[BLKMAX];
+} relheader_t;
+
+relheader_t relheaders[DISKSIZE];
+int numrels = 0;  // tracks how many relations exist
+
+int* getHeader(char *relname) {
+	for (int i = 0; i < numrels; i++) {
+		if (strcmp(relheaders[i].relname, relname) == 0)
+			return relheaders[i].header;
+	}
+	return NULL;  // not found
+}
+
+typedef struct {
 	char relname[9]; // max length of 8 chars + null terminator
 	int kind;
 	int attsize;
@@ -32,7 +49,6 @@ typedef struct {
 	int relsize; 
 	int relptr;
 } catalog;
-
 
 typedef struct {
 	char relname[9];
@@ -68,33 +84,63 @@ int findFreeBlock() {
 // Purpose: applies the hash function on a name of a relation
 // Parameter: char *name - the name of the relation
 // Returns: the bucket number
-int hash(char *relname) {
+int hash(char *tuple) {
+	char key[10];
+	sscanf(tuple, "%s", key);
 	int sum = 0;
-	for (int i = 0; i < strlen(relname); i++) {
-    	sum += relname[i]; 
+	for (int i = 0; i < strlen(key); i++) {
+    	sum += key[i];
 	}
 	int	bucketnum = sum % 16;
 	return bucketnum;
 }
 /* Disk IO operations */
+/* Write 256 bytes of data from the specified buffer into the specified disk block */
+void diskwrite(int blocknum, char *buffer) {
+	FILE *stream = fopen("disk.db", "r+b");
+	if(stream == NULL) {
+		stream = fopen("disk.db", "w+b");
+	}
+	fseek(stream, blocknum * BLKSIZE, SEEK_SET);
+	fwrite(buffer, sizeof(char), 256, stream);
+	fclose(stream);
+}
 
 // Purpose: initializes the specified header buffer and associates with the given header block.
 // Parameters: char *relname - name of the relation
-void dbcreate(char *relname, char *headerblk) {
-	int blocknum;
-    
-    if (strcmp(relname, "catalog") == 0) {
+void dbcreate(char *relname) {
+	int headerblknum;
 
-        blocknum = 1;
-    } else if (strcmp(relname, "columns") == 0) {
-        blocknum = 2;
-    } else
-        blocknum = findFreeBlock();
+	// make sure relation does not already exist
+	if (strcmp(relname, "catalog") == 0)
+		headerblknum = 1;
+	else if (strcmp(relname, "columns") == 0)
+		headerblknum = 2;
+	else {
+		headerblknum = findFreeBlock();
+		if (headerblknum == -1) {
+			printf("dbcreate error: no free disk block available\n");
+			return;
+		}
 	}
-	
-	memcpy(headerblk, bocknum, BLKSIZE);
-	
-	diskwrite(blocknum, headerblk);
+	// reserve a disk block for this relation's header
+	if (headerblknum == -1) {
+		printf("dbcreate error: no free disk block available\n");
+		return;
+	}
+
+	// add relation to relheaders table
+	strcpy(relheaders[numrels].relname, relname);
+
+	// initialize its in-memory header to all -1
+	for (int i = 0; i < BLKMAX; i++) {
+		relheaders[numrels].header[i] = -1;
+	}
+
+	// write header array to disk
+	diskwrite(headerblknum, (char *) relheaders[numrels].header);
+
+	numrels++;
 }
 	
 
@@ -110,71 +156,51 @@ void diskread(int blocknum, char *buffer) {
 /* computes the hash value of the tuple. If a block exists for the hash value, read the block into the data buffer. If the block is full, read an overflow block into the data buffer. If no block exists for that hash value, create a block and initialize the data buffer. Finally, it inserts the given tuple into a free slot in the data buffer and flushes the buffer. */
 void dbput(char *relname, char *tuple) {
 	int hashvalue = hash(tuple);
-	int blocknum = -1;
+	int blocknum;
+	int inserted = 0;
 
-	// Pick the correct header based on relation name
-	if (strcmp(relname, "catalog") == 0) {
-		if (catalogHeader[hashvalue] == -1) {
-			blocknum = findFreeBlock();
-			catalogHeader[hashvalue] = blocknum;
-
-			// initialize block to empty
-			for (int i = 0; i < 4; i++) {
-				datablk[i].flag = 0;
-				datablk[i].tuple[0] = '\0';
-			}
-		} else {
-			blocknum = catalogHeader[hashvalue];
-			diskread(blocknum, (char *)datablk);
-		}
+	int *header = getHeader(relname);
+	if (header == NULL) {
+		printf("dbput error: relation '%s' not found\n", relname);
+		return;
 	}
-	else if (strcmp(relname, "columns") == 0) {
-		if (columnHeader[hashvalue] == -1) {
-			blocknum = findFreeBlock();
-			columnHeader[hashvalue] = blocknum;
 
-			// initialize block to empty
-			for (int i = 0; i < 4; i++) {
-				datablk[i].flag = 0;
-				datablk[i].tuple[0] = '\0';
-			}
-		} else {
-			blocknum = columnHeader[hashvalue];
-			diskread(blocknum, (char *)datablk);
+	if (header[hashvalue] == -1) {
+		blocknum = findFreeBlock();
+		header[hashvalue] = blocknum;
+
+		// initialize empty block
+		for (int i = 0; i < 4; i++) {
+			datablk[i].flag = 0;
+			datablk[i].tuple[0] = '\0';
 		}
-	}
-	else {
-		// regular relation: use hashvalue directly as block number
-		blocknum = hashvalue;
+	} else {
+		blocknum = header[hashvalue];
 		diskread(blocknum, (char *)datablk);
 	}
 
-	// Find one free slot only
+	// insert into first free slot
 	for (int i = 0; i < 4; i++) {
 		if (datablk[i].flag == 0) {
 			datablk[i].flag = 1;
 			strcpy(datablk[i].tuple, tuple);
+			inserted = 1;
 			break;
 		}
 	}
 
-	// Write the whole block back to disk
+	if (!inserted) {
+		printf("dbput error: block overflow for relation '%s'\n", relname);
+		return;
+	}
+
 	diskwrite(blocknum, (char *)datablk);
 }
 
 	
 
 
-/* Write 256 bytes of data from the specified buffer into the specified disk block */
-void diskwrite(int blocknum, char *buffer) {
-	FILE *stream = fopen("disk.db", "r+b");
-	if(stream == NULL) {
-		stream = fopen("disk.db", "w+b");
-	}
-	fseek(stream, blocknum * BLKSIZE, SEEK_SET);
-	fwrite(buffer, sizeof(char), 256, stream); 
-	fclose(stream);
-	}
+
 
 void do_create() {
 	char relname[9];
@@ -195,8 +221,8 @@ int main(void) {
 	bitmapblk[1] = 1;  // catalog header
 	bitmapblk[2] = 1;  // columns header
 	// initialize headerblocks
-	dbcreate("catalog", catalogHeader);
-	dbcreate("columns", columnHeader);
+	dbcreate("catalog");
+	dbcreate("columns");
 	//write catalog into catalog
 	dbput("catalog", "catalog 0 6 1 2 1");
 	dbput("catalog", "columns 0 4 2 10 2");
