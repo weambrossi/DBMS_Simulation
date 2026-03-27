@@ -4,6 +4,7 @@
  * MAR 25 2026
  */
 #include <stdio.h>
+#include <string.h>
 #define RECSIZE     63      /* Size of data record in bytes */
 #define BLKSIZE    256      /* Size of a disk block in bytes */
 #define BLKFAC       4      /* Blocking factor */
@@ -104,7 +105,57 @@ void diskread(int blocknum, char *buffer) {
 
 /* computes the hash value of the tuple. If a block exists for the hash value, read the block into the data buffer. If the block is full, read an overflow block into the data buffer. If no block exists for that hash value, create a block and initialize the data buffer. Finally, it inserts the given tuple into a free slot in the data buffer and flushes the buffer. */
 void dbput(char *relname, char *tuple) {
+	int hashvalue = hash(tuple);
+	int blocknum = -1;
 
+	// Pick the correct header based on relation name
+	if (strcmp(relname, "catalog") == 0) {
+		if (catalogHeader[hashvalue] == -1) {
+			blocknum = findFreeBlock();
+			catalogHeader[hashvalue] = blocknum;
+
+			// initialize block to empty
+			for (int i = 0; i < 4; i++) {
+				datablk[i].flag = 0;
+				datablk[i].tuple[0] = '\0';
+			}
+		} else {
+			blocknum = catalogHeader[hashvalue];
+			diskread(blocknum, (char *)datablk);
+		}
+	}
+	else if (strcmp(relname, "columns") == 0) {
+		if (columnHeader[hashvalue] == -1) {
+			blocknum = findFreeBlock();
+			columnHeader[hashvalue] = blocknum;
+
+			// initialize block to empty
+			for (int i = 0; i < 4; i++) {
+				datablk[i].flag = 0;
+				datablk[i].tuple[0] = '\0';
+			}
+		} else {
+			blocknum = columnHeader[hashvalue];
+			diskread(blocknum, (char *)datablk);
+		}
+	}
+	else {
+		// regular relation: use hashvalue directly as block number
+		blocknum = hashvalue;
+		diskread(blocknum, (char *)datablk);
+	}
+
+	// Find one free slot only
+	for (int i = 0; i < 4; i++) {
+		if (datablk[i].flag == 0) {
+			datablk[i].flag = 1;
+			strcpy(datablk[i].tuple, tuple);
+			break;
+		}
+	}
+
+	// Write the whole block back to disk
+	diskwrite(blocknum, (char *)datablk);
 }
 
 	
