@@ -1,0 +1,75 @@
+CR flights 5 1
+fid I
+orig S
+dest S
+dist I
+price I
+IN flights 12
+4821 BOS MIA 1258 200
+1934 BOS JFK 215 100
+8750 BOS DEN 1971 240
+6502 BOS ATL 946 180
+7318 BOS ORD 867 170
+2945 JFK LAX 2475 280
+5012 JFK MIA 1090 190
+3479 JFK ATL 760 160
+6183 ATL MIA 600 120
+4397 ATL DAL 720 140
+8621 DAL LAX 1235 220
+1057 DEN LAX 862 150
+PR flights
+CR flights2 5 1
+fid I
+orig S
+dest S
+dist I
+price I
+IN flights2 8
+2740 DEN BOS 1971 240
+9182 DEN ATL 1199 200
+3571 DEN ORD 888 170
+4810 ORD BOS 867 170
+6523 ORD ATL 606 130
+7349 ORD DEN 888 170
+8610 ORD LAX 1744 230
+2931 ORD MIA 1197 210
+PR flights2
+PJ flights routes 2
+orig
+dest
+PR routes
+SL flights expensive 1
+price > 220
+PR expensive
+SL flights shortcheap 2
+dist < 800
+price < 200
+PR shortcheap
+UN flights flights2 allflights
+PR allflights
+DF allflights flights diffset
+PR diffset
+CR sched 3 1
+fid I
+plane S
+time I
+IN sched 7
+4821 B737 800
+1934 A320 830
+6502 B737 900
+2945 B747 1000
+5012 A321 1030
+8621 B737 1100
+3571 B777 1200
+PR sched
+NJ flights sched flight_sched 1
+fid
+PR flight_sched
+RM flights 2
+1934
+6183
+PR flights
+UP flights 2
+4821 BOS MIA 1258 210
+8621 DAL LAX 1235 230
+PR flights
